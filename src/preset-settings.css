@@ -1,0 +1,15 @@
+.preset-settings-create { display: flex; align-items: center; gap: 8px; margin: 20px 0 12px; }
+.preset-settings-create > input { flex: 1; min-width: 0; }
+.preset-settings-list { margin-top: 20px; }
+.preset-settings-editor { display: grid; gap: 16px; }
+.preset-settings-name { display: grid; gap: 8px; }
+.preset-settings-name > input { width: 100%; box-sizing: border-box; }
+.preset-settings-level { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(70px, 2fr) 80px; align-items: center; gap: 12px; }
+.preset-settings-number { display: flex; align-items: center; gap: 5px; }
+.preset-settings-number input { width: 60px; min-width: 0; box-sizing: border-box; }
+.preset-settings input[type="range"] { width: 100%; padding: 0; accent-color: var(--system-accent-color, #4488cc); }
+.preset-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.preset-settings-status { margin: 8px 0; font-size: 12px; }
+.preset-settings button:disabled { opacity: .5; cursor: default; }
+.preset-settings button { font: inherit; color: inherit; }
+@media (max-width: 640px) { .preset-settings-level { grid-template-columns: 1fr 80px; } .preset-settings-level > span:first-child { grid-column: 1 / -1; } }

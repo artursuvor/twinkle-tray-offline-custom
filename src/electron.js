@@ -1,12 +1,24 @@
 const { app, shell } = require('electron');
+const offline = require('./offline');
+offline.installNodePolicy();
+offline.installElectronPolicy(require('electron'));
 const fs = require('fs')
 
 const path = require('path');
+const { makeQuickPreset, updateQuickPreset } = require('./quick-presets');
 
 let isDev = app.commandLine.hasSwitch("dev");
 
 let package = fs.readFileSync(isDev ? "package.json" : __dirname + '/../package.json')
 if(package) package = JSON.parse(package)
+
+// This personal build keeps its data alongside the executable, separate from
+// the installed Twinkle Tray. Development data stays inside the checkout.
+if (package.name === 'twinkle-tray-custom') {
+  const customData = path.join(app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath(), 'data')
+  fs.mkdirSync(customData, { recursive: true })
+  app.setPath('userData', customData)
+}
 
 const appVersionFull = (package?.versionBuild ?? app.getVersion())
 const appVersion = appVersionFull.split('+')[0]
@@ -815,29 +827,7 @@ let analyticsInterval = false
 let analyticsFrequency = 1000 * 60 * 29 // 29 minutes
 let lastAnalyticsPing = 0
 
-function pingAnalytics() {
-  // Skip if too recent
-  if (Date.now() < lastAnalyticsPing + (1000 * 60 * 28)) return false;
-
-  const analytics = require('ga4-mp').createClient("Y1YTliQdTL-moveI0z1TLA", "G-BQ22ZK4BPY", settings.uuid)
-  console.log("\x1b[34mAnalytics:\x1b[0m sending with UUID " + settings.uuid)
-
-  let events = []
-  events.push({
-    name: "page_view",
-    params: {
-      page_location: app.name + "/" + "v" + appVersion + "/" + (appBuild ? appBuild : ""),
-      page_title: app.name + "/" + "v" + appVersion,
-      page_referrer: app.name,
-      os_version: require("os").release(),
-      app_type: app.name,
-      app_version: appVersion,
-      engagement_time_msec: 1
-    }
-  })
-  analytics.send(events)
-  lastAnalyticsPing = Date.now()
-}
+function pingAnalytics() { return false; }
 
 let monitors = {}
 let mainWindow;
@@ -881,7 +871,7 @@ const defaultSettings = {
   theme: "default",
   icon: "icon",
   updateInterval: 500,
-  openAtLogin: true,
+  openAtLogin: package.name !== 'twinkle-tray-custom',
   brightnessAtStartup: true,
   killWhenIdle: false,
   remaps: {},
@@ -904,11 +894,11 @@ const defaultSettings = {
   extendMinimumBreakpoints: {},
   sdrAsMainSliderDisplays: {},
   sdrAsMainSlider: false,
-  checkForUpdates: !isDev,
+  checkForUpdates: !isDev && package.name !== 'twinkle-tray-custom',
   dismissedUpdate: '',
   language: "system",
   names: {},
-  analytics: !isDev,
+  analytics: !isDev && package.name !== 'twinkle-tray-custom',
   scrollShortcut: true,
   scrollShortcutAmount: 2,
   scrollFlyoutAmount: 2,
@@ -1017,6 +1007,7 @@ function readSettings(doProcessSettings = true) {
   }
 
   // Overrides
+  offline.enforceOfflineSettings(settings)
   settings.isDev = isDev
   settings.killWhenIdle = false
 
@@ -1217,7 +1208,7 @@ if (settings.forceLowPowerGPU) {
 
 let writeSettingsTimeout = false
 function writeSettings(newSettings = {}, processAfter = true, sendUpdate = true) {
-  settings = Object.assign(settings, newSettings)
+  settings = offline.enforceOfflineSettings(Object.assign(settings, newSettings))
 
   if (!writeSettingsTimeout) {
     writeSettingsTimeout = setTimeout(() => {
@@ -2195,9 +2186,9 @@ async function updateStartupOption(openAtLogin) {
     */
 
     if(openAtLogin) {
-      enableStartup('electron.app.Twinkle Tray', app.getPath('exe'))
+      enableStartup(package.name === 'twinkle-tray-custom' ? 'electron.app.Twinkle Tray Custom' : 'electron.app.Twinkle Tray', app.getPath('exe'))
     } else {
-      disableStartup('electron.app.Twinkle Tray')
+      disableStartup(package.name === 'twinkle-tray-custom' ? 'electron.app.Twinkle Tray Custom' : 'electron.app.Twinkle Tray')
     }
   }
 
@@ -2369,6 +2360,43 @@ ipcMain.on('send-settings', (event, data) => {
 
 ipcMain.on('request-ddc-safety-status', event => {
   sendDDCSafetyStatus(event.sender)
+})
+
+ipcMain.handle('quick-preset', (event, request = {}) => {
+  const expectedSender = request.action === 'apply' ? mainWindow?.webContents : settingsWindow?.webContents
+  if (!expectedSender || event.sender !== expectedSender) return { ok: false, error: 'invalid-sender' }
+  try {
+    const profiles = [...(settings.profiles || [])]
+    const index = profiles.findIndex(profile => profile.uuid === request.id)
+    if (request.action === 'apply') {
+      if (index < 0 || !profiles[index].setBrightness) throw new Error('missing-profile')
+      applyProfileBrightness(profiles[index])
+    } else if (request.action === 'save') {
+      const profile = makeQuickPreset(request.name, monitors, request.levels, settings, uuid())
+      if (profiles.some(item => item.name?.trim().toLowerCase() === profile.name.toLowerCase()))
+        throw new Error('duplicate-name')
+      profiles.push(profile)
+      writeSettings({ profiles }, true, true)
+    } else if (request.action === 'update') {
+      if (index < 0 || !profiles[index].quickPreset) throw new Error('missing-profile')
+      const profile = updateQuickPreset(profiles[index], request.name, request.levels)
+      if (profiles.some((item, i) => i !== index && item.name?.trim().toLowerCase() === profile.name.toLowerCase()))
+        throw new Error('duplicate-name')
+      profiles[index] = profile
+      writeSettings({ profiles }, true, true)
+    } else if (request.action === 'overwrite') {
+      if (index < 0 || !profiles[index].quickPreset) throw new Error('missing-profile')
+      profiles[index] = makeQuickPreset(profiles[index].name, monitors, request.levels, settings, request.id)
+      writeSettings({ profiles }, true, true)
+    } else if (request.action === 'delete') {
+      if (index < 0 || !profiles[index].quickPreset) throw new Error('missing-profile')
+      profiles.splice(index, 1)
+      writeSettings({ profiles }, true, true)
+    } else throw new Error('invalid-action')
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error: error.message }
+  }
 })
 
 ipcMain.on('retry-ddc-validation', () => {
@@ -4232,6 +4260,8 @@ function applyProfileBrightness(profile) {
     Object.values(monitors)?.forEach(monitor => {
       // Displays whose slider was never moved have no stored level. Use the 50 the settings slider shows.
       const level = profile.monitors?.[monitor.id]
+      // A snapshot must leave newly connected / uncaptured displays unchanged.
+      if (profile.quickPreset && !Number.isFinite(level)) return
       updateBrightness(monitor.id, (Number.isFinite(level) ? level : 50), true, "brightness")
     })
     sendToAllWindows('monitors-updated', monitors)
@@ -4981,117 +5011,10 @@ ipcMain.on("windowClose", e => {
 
 let latestVersion = false
 let lastCheck = false
-checkForUpdates = async (force = false) => {
-  if (!force) {
-    if (!settings.checkForUpdates) return false;
-    if (lastCheck && lastCheck == new Date().getDate()) return false;
-  }
-  if (isPortable || isAppX) return false;
-  lastCheck = new Date().getDate()
-  try {
-    if (isAppX === false) {
-      console.log("Checking for updates...")
-      fetch("https://api.github.com/repos/xanderfrangos/twinkle-tray/releases").then((response) => {
-        response.json().then((releases) => {
-          let foundVersion = false
-          for (let release of releases) {
-            if (!(settings.branch === "master" && release.prerelease === true)) {
-
-              // Skip versions older than current
-              const versionParsed =  Utils.getVersionValue(release.tag_name)
-              const appVersionValue = Utils.getVersionValue(`v${app.getVersion()}`)
-              if(versionParsed < appVersionValue) continue;
-
-              foundVersion = true
-              latestVersion = {
-                releaseURL: (release.html_url),
-                version: release.tag_name,
-                downloadURL: release.assets[0]["browser_download_url"],
-                filesize: release.assets[0]["size"],
-                changelog: release.body,
-                show: false,
-                error: false
-              }
-              console.log("Found version: " + latestVersion.version)
-              break
-            }
-          }
-
-          if (foundVersion && "v" + appVersion != latestVersion.version && (settings.dismissedUpdate != latestVersion.version || force)) {
-            if (!force) latestVersion.show = true
-            console.log("Sending new version to windows.")
-            sendToAllWindows('latest-version', latestVersion)
-          }
-
-        })
-      });
-    }
-  } catch (e) {
-    console.log(e)
-  }
-}
+checkForUpdates = async (force = false) => { return false; }
 
 
-getLatestUpdate = async (version) => {
-  try {
-    console.log("Downloading update from: " + version.downloadURL)
-    const fs = require('fs');
-
-    latestVersion.downloading = true
-    sendToAllWindows('latest-version', latestVersion)
-
-    // Remove old update
-    if (fs.existsSync(updatePath)) {
-      try {
-        fs.unlinkSync(updatePath)
-      } catch (e) {
-        console.log("Couldn't delete old update file")
-      }
-    }
-
-    const update = await fetch(version.downloadURL)
-    if (!update.ok || !update.body) {
-      throw new Error(`Update download failed with HTTP ${update.status}`)
-    }
-
-    console.log("Downloading...!")
-    const readableNodeStream = Readable.fromWeb(update.body)
-    const dest = fs.createWriteStream(updatePath)
-    let size = 0
-    let lastSizeUpdate = 0
-
-    readableNodeStream.on('data', (chunk) => {
-      size += chunk.length
-      if (size >= lastSizeUpdate + (version.filesize * 0.01) || lastSizeUpdate === 0 || size === version.filesize) {
-        lastSizeUpdate = size
-        sendToAllWindows('updateProgress', Math.floor((size / version.filesize) * 100))
-        console.log(`Downloaded ${size / 1000}KB. [${Math.floor((size / version.filesize) * 100)}%]`)
-      }
-    })
-
-    await new Promise((resolve, reject) => {
-      readableNodeStream.once('error', reject)
-      dest.once('error', reject)
-      dest.once('finish', resolve)
-      readableNodeStream.pipe(dest)
-    })
-
-    if (size !== version.filesize) {
-      throw new Error(`Update download was incomplete. Expected ${version.filesize} bytes, got ${size}`)
-    }
-
-    console.log("Saved! Running...")
-    setTimeout(() => {
-      runUpdate(version.filesize)
-    }, 1250)
-
-  } catch (e) {
-    console.log("Couldn't download update!", e)
-    latestVersion.show = true
-    latestVersion.downloading = false
-    sendToAllWindows('latest-version', latestVersion)
-  }
-}
+getLatestUpdate = async (version) => { return false; }
 
 function runUpdate(expectedSize = false) {
   try {
@@ -5822,39 +5745,9 @@ function handleBackgroundUpdate(force = false) {
 }
 
 let lastCoordCheck = { value: { lat: 0, long: 0}, ts: 0 }
-async function getUserCoordinates() {
-  if(Date.now() - 10000 < lastCoordCheck.ts) return lastCoordCheck.value;
-  try {
-    if (isAppX === false) {
-      console.log("Getting geolocation...")
-      const response = await fetch("https://geo.twinkletray.com/")
-      if(response.status === 200) {
-        const coordinates = {
-          lat: response.headers.get("X-Geo-Lat"),
-          long: response.headers.get("X-Geo-Long")
-        }
-        if(typeof coordinates.lat === "string" && typeof coordinates.long === "string") {
-          console.log("Coordinates: ", coordinates)
-          lastCoordCheck.value = coordinates
-          lastCoordCheck.ts = Date.now()
-          return coordinates
-        }
-        throw("Couldn't get coordinates. Returned: " . JSON.stringify(coordinates))
-      }
-    }
-  } catch (e) {
-    console.log(e)
-  }
-}
+async function getUserCoordinates() { return false; }
 
-async function getAndApplyUserCoordinates() {
-  try {
-    const coordinates = await getUserCoordinates()
-    writeSettings({adjustmentTimeLongitude: coordinates.long, adjustmentTimeLatitude: coordinates.lat}, true, true)
-  } catch(e) {
-    console.log(e)
-  }
-}
+async function getAndApplyUserCoordinates() { return false; }
 
 ipcMain.on('get-coordinates', getAndApplyUserCoordinates)
 

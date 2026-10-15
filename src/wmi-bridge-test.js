@@ -1,3 +1,4 @@
+require('./offline').installNodePolicy();
 console.log("\x1b[45mRunning wmi-bridge test...\x1b[0m")
 const wmibridge = require("wmi-bridge");
 require("os").setPriority(0, require("os").constants.priority.PRIORITY_BELOW_NORMAL)

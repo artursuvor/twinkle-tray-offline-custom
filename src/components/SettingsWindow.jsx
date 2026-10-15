@@ -18,6 +18,7 @@ import MonitorInfo from "./MonitorInfo"
 import MonitorFeatures from "./MonitorFeatures"
 import { SettingsOption, SettingsChild } from "./SettingsOption";
 import SafeRender from "./SafeRender";
+import PresetSettings from "./PresetSettings";
 import { getMonitorName, isAdjustableDisplay, displayLevel } from './utilts/monitor.util';
 import { LightSensorSettings } from "./light-sensor/LightSensorSettings";
 
@@ -208,7 +209,6 @@ export default class SettingsWindow extends PureComponent {
                     updateProgress: e.detail.progress
                 })
             })
-            window.checkForUpdates()
         }
         window.ipc.send('get-window-history')
         window.ipc.send("sendSettingsWindowPos")
@@ -386,6 +386,11 @@ export default class SettingsWindow extends PureComponent {
                 icon: "&#xF210;"
             },
             {
+                id: "presets",
+                label: "Пресеты",
+                icon: "&#xE8F1;"
+            },
+            {
                 id: "light-sensor",
                 label: T.t("SETTINGS_SIDEBAR_LIGHT_SENSOR"),
                 icon: "&#xE957;"
@@ -402,7 +407,7 @@ export default class SettingsWindow extends PureComponent {
                 type: "debug"
             }
         ]
-        return items.map((item, index) => {
+        return items.filter(item => !['updates', 'debug'].includes(item.id)).map((item, index) => {
             return (<div key={item.id} className="item" data-active={this.isSection(item.id)} data-type={item.type || "none"} onClick={() => { this.setState({ activePage: item.id }); window.currentSettingsPage = item.id; this.scrollToTop(); window.reloadReactMonitors(); window.requestMonitors(); }}>
                 <div className="icon" dangerouslySetInnerHTML={{ __html: (item.icon || "&#xE770;") }}></div><div className="label">{item.label || `Item ${index}`}</div>
             </div>)
@@ -1367,7 +1372,6 @@ export default class SettingsWindow extends PureComponent {
                                         </div>
                                     )} />
 
-                                    <SettingsOption title={T.t("SETTINGS_GENERAL_ANALYTICS_TITLE")} description={T.h("SETTINGS_GENERAL_ANALYTICS_DESC", '<a href="javascript:window.openURL(\'privacy-policy\')">' + T.t("SETTINGS_GENERAL_ANALYTICS_LINK") + '</a>')} input={this.renderToggle("analytics")} />
 
                                 </div>
 
@@ -1635,7 +1639,7 @@ export default class SettingsWindow extends PureComponent {
                                     <div className="sectionTitle">{T.t("SETTINGS_PROFILES_TITLE")}</div>
                                     <p>{T.t("SETTINGS_PROFILES_DESC")}</p>
                                     <div className="hotkey-profiles">
-                                        {this.state.rawSettings?.profiles?.map((profile, idx) => <AppProfile key={`${idx}__${profile.uuid}`} profile={profile} monitors={this.state.monitors} updateValue={(key, value) => {
+                                        {this.state.rawSettings?.profiles?.map((profile, idx) => profile.quickPreset ? null : <AppProfile key={`${idx}__${profile.uuid}`} profile={profile} monitors={this.state.monitors} updateValue={(key, value) => {
                                             profile[key] = value
                                             sendSettings({ profiles: this.state.rawSettings?.profiles })
                                             this.forceUpdate()
@@ -1651,6 +1655,10 @@ export default class SettingsWindow extends PureComponent {
                                     </div>
 
                                 </div>
+                            </SettingsPage>
+
+                            <SettingsPage current={this.state.activePage} id="presets">
+                                <PresetSettings monitors={this.state.monitors} />
                             </SettingsPage>
 
                             <SettingsPage current={this.state.activePage} id="light-sensor">

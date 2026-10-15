@@ -1,3 +1,4 @@
+require('./offline').installNodePolicy();
 const tag = "\x1b[47m M \x1b[0m";
 const oLog = console.log
 console.log = (...args) => { args.unshift(tag); oLog(...args) }

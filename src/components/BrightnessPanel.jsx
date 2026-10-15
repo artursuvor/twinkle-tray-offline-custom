@@ -2,6 +2,7 @@ import React, { memo, useEffect, useMemo, useState } from "react";
 import Slider from "./Slider";
 import DDCCISliders from "./DDCCISliders"
 import HDRSliders from "./HDRSliders";
+import QuickPresets from "./QuickPresets";
 import TranslateReact from "../TranslateReact"
 import getMonitorName from "../utils/BrightnessPanel/getMonitorName";
 import { usesGammaSlider, isAdjustableDisplay } from "./utilts/monitor.util";
@@ -398,6 +399,11 @@ const BrightnessPanel = memo(function BrightnessPanel() {
         </div>
       </div>
       {state.sleeping ? (<div></div>) : getMonitors()}
+      {!state.sleeping && <QuickPresets monitors={state.monitors} beforeApply={() => {
+        // Discard a queued slider write so it cannot overwrite the preset.
+        setLevelsChanged(false)
+        setDoBackgroundEvent(false)
+      }} />}
       {
         (state.update && state.update.show)
           ?

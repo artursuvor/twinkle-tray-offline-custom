@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsChild, SettingsOption } from "../SettingsOption";
 import { getMonitorName } from "../utilts/monitor.util";
-import { YoctoSettings } from "./sensors/YoctoSettings";
 import { FakeSensorSettings } from "./sensors/FakeSettings";
 import { WindowsSettings } from "./sensors/WindowsSettings";
 
@@ -111,7 +110,6 @@ export function LightSensorSettings({ T, renderToggle, monitors }) {
         <SettingsOption title={T.t("SETTINGS_LIGHT_SENSOR_ENABLE")} input={renderLightSensorToggle()}>
           <SettingsChild title={T.t("SETTINGS_LIGHT_SENSOR_TYPE_TITLE")} description={T.t("SETTINGS_LIGHT_SENSOR_TYPE_DESC")} input={
             <select value={activeSensor} onChange={sensorTypeChanged}>
-                <option value="yocto">{T.t("SETTINGS_LIGHT_SENSOR_TYPE_YOCTO")}</option>
                 <option value="fake">{T.t("SETTINGS_LIGHT_SENSOR_TYPE_FAKE")}</option>
                 <option value="windows">{T.t("SETTINGS_LIGHT_SENSOR_TYPE_WINDOWS")}</option>
             </select>
@@ -129,7 +127,6 @@ export function LightSensorSettings({ T, renderToggle, monitors }) {
 
         {!(lightSensorSettings.enabled) ? <></> : <>
         
-          {activeSensor === 'yocto' && <YoctoSettings T={T} lightSensorSettings={lightSensorSettings} />}
           {activeSensor === 'fake' && <FakeSensorSettings T={T} lightSensorSettings={lightSensorSettings} />}
           {activeSensor === 'windows' && <WindowsSettings T={T} />}
 

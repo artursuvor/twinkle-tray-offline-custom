@@ -1,4 +1,3 @@
-const { YoctoLightSensor } = require('./sensors/yocto-light-sensor');
 const { FakeLightSensor } = require('./sensors/fake-light-sensor');
 const { WindowsAmbientLightSensor } = require('./sensors/windows-ambient-light-sensor');
 
@@ -30,7 +29,6 @@ function clone(data) {
 class LightSensor {
     constructor() {
         this.sensors = {
-            yocto: new YoctoLightSensor(),
             fake: new FakeLightSensor(),
             windows: new WindowsAmbientLightSensor(),
         };

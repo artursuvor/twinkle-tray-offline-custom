@@ -1,3 +1,4 @@
+require('./offline').installNodePolicy();
 const { ipcRenderer: ipc } = require('electron');
 
 function getArgumentVars() {

@@ -1,5 +1,5 @@
 {
-  "name": "twinkle-tray",
+  "name": "twinkle-tray-custom",
   "version": "1.18.0-beta2",
   "description": "Manage the brightness of monitors from your system tray",
   "main": "src/electron.js",
@@ -35,7 +35,6 @@
     "@paymoapp/active-window": "file:src/modules/node-active-window",
     "acrylic": "file:src/modules/acrylic",
     "color": "^4.2.3",
-    "ga4-mp": "^1.0.3",
     "global-mouse-events": "^1.2.0",
     "markdown-to-jsx": "^7.5.0",
     "stackblur-canvas": "^2.7.0",
@@ -54,8 +53,8 @@
     "native-reg": "^1.1.1"
   },
   "build": {
-    "productName": "Twinkle Tray",
-    "appId": "com.xanderfrangos.twinkle-tray",
+    "productName": "Twinkle Tray Custom",
+    "appId": "local.codex.twinkle-tray-custom",
     "compression": "normal",
     "electronLanguages": ["en-US"],
     "afterPack": "resources/afterPack.js",
@@ -72,6 +71,8 @@
       "src/monitor-rules.json",
       "src/localization/*",
       "src/Utils.js",
+      "src/quick-presets.js",
+      "src/offline.js",
       "src/Logger.js",
       "src/Monitors.js",
       "src/wmi-bridge-test.js",

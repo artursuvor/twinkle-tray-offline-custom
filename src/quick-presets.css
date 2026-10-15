@@ -1,0 +1,8 @@
+.quick-presets { position: relative; z-index: 1; padding: 0 20px 14px; }
+.quick-presets-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 100px; overflow-y: auto; }
+.quick-preset-apply { font: inherit; font-size: 12px; line-height: 18px; border: 1px solid transparent; border-radius: 6px; padding: 4px 10px; color: inherit; background: #8882; cursor: pointer; min-width: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-preset-apply:hover { background: #8883; }
+.quick-preset-apply[aria-pressed="true"] { border-color: var(--system-accent-color, #4488cc); }
+.quick-preset-apply:focus-visible { outline: 2px solid var(--system-accent-color, #4488cc); outline-offset: -2px; }
+.quick-preset-apply:disabled { opacity: .5; cursor: default; }
+.quick-preset-error { font-size: 11px; line-height: 1.4; margin-top: 8px; }
