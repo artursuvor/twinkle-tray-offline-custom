@@ -4,6 +4,13 @@ A personal Windows x64 fork of [Twinkle Tray](https://github.com/xanderfrangos/t
 
 ## What's new in this fork
 
+### Early startup and reliable preset clicks
+
+- Starting the app between 00:00 and 06:59 (Windows local time) sets each supported display to 0% once. Displays discovered during the next two minutes are included. A manual brightness change cancels pending startup dimming. Starting at or after 07:00 keeps the normal saved-brightness behavior; there is no forced change at 07:00.
+- Preset clicks cancel pending slider writes and transitions. A monitor refresh already in progress cannot replace the newly selected level with its older reading.
+- `tools/asrock-monitor/monitor_auto_off.pyw` is the companion for the ASRock CL25FF. It enables the monitor at login, retries discovery/wake for up to one minute, and retains the existing shutdown behavior. `--on` or `Включить монитор.cmd` explicitly enables it without shutting down Windows. The deployed helper lives in `Documents/Codex/Utilities/AsrockMonitorAutoOff` and uses the existing logon task.
+- `tools/install-startup.ps1` installs a hidden per-user Twinkle Tray logon task for the desktop custom build. It does not require an administrator account.
+
 ### Quick brightness presets
 
 - Compact preset buttons appear below the brightness sliders in the tray panel.

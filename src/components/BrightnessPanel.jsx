@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import Slider from "./Slider";
 import DDCCISliders from "./DDCCISliders"
 import HDRSliders from "./HDRSliders";
@@ -36,7 +36,9 @@ const BrightnessPanel = memo(function BrightnessPanel() {
     return localNumMonitors
   }, [state.monitors, state.hideDisplays])
 
-  let updateInterval = null
+  const updateInterval = useRef(null)
+  const sliderWritePending = useRef(false)
+  const latestSyncBrightness = useRef(null)
   let panelHeight = -1
 
   // Enable/Disable linked levels
@@ -50,6 +52,7 @@ const BrightnessPanel = memo(function BrightnessPanel() {
 
   // Handle <Slider> changes
   const handleChange = (level, slider) => {
+    sliderWritePending.current = true
     const monitors = { ...state.monitors }
     const sliderMonitor = monitors[slider.props.hwid]
     if (numMonitors && state.linkedLevelsActive) {
@@ -147,7 +150,8 @@ const BrightnessPanel = memo(function BrightnessPanel() {
   // Send new brightness to monitors, if changed
   const syncBrightness = () => {
     const monitors = state.monitors
-    if (init && levelsChanged && (window.showPanel || doBackgroundEvent) && numMonitors) {
+    if (sliderWritePending.current && init && levelsChanged && (window.showPanel || doBackgroundEvent) && numMonitors) {
+      sliderWritePending.current = false
       setDoBackgroundEvent(false)
       setLevelsChanged(false)
       try {
@@ -163,9 +167,10 @@ const BrightnessPanel = memo(function BrightnessPanel() {
   }
 
   const resetBrightnessInterval = () => {
-    if (updateInterval) clearInterval(updateInterval)
-    updateInterval = setInterval(() => syncBrightness(), (state.updateInterval || 500))
+    if (updateInterval.current) clearInterval(updateInterval.current)
+    updateInterval.current = setInterval(() => latestSyncBrightness.current(), (state.updateInterval || 500))
   }
+  latestSyncBrightness.current = syncBrightness
 
   const handleIsRefreshingUpdate = (e) => setState(prev => ({ ...prev, isRefreshing: e.detail }))
   const handleUpdateProgress = (e) => setState(prev => ({ ...prev, updateProgress: e.detail.progress }))
@@ -173,7 +178,7 @@ const BrightnessPanel = memo(function BrightnessPanel() {
   useEffect(() => {
     resetBrightnessInterval()
     return () => {
-      clearInterval(updateInterval)
+      clearInterval(updateInterval.current)
     }
   }, [state.monitors, numMonitors, doBackgroundEvent, levelsChanged, init])
 
@@ -401,6 +406,7 @@ const BrightnessPanel = memo(function BrightnessPanel() {
       {state.sleeping ? (<div></div>) : getMonitors()}
       {!state.sleeping && <QuickPresets monitors={state.monitors} beforeApply={() => {
         // Discard a queued slider write so it cannot overwrite the preset.
+        sliderWritePending.current = false
         setLevelsChanged(false)
         setDoBackgroundEvent(false)
       }} />}

@@ -20,8 +20,19 @@ function setup() {
     monitors: { monitor: { key: 'monitor', id: 'DISPLAY-1', type: 'wmi', brightness: 37 } },
     uuid: () => 'test-preset', makeQuickPreset, updateQuickPreset,
     writeSettings: next => Object.assign(state, next),
-    applyProfileBrightness: profile => applied.push(profile)
+    applyProfileBrightness: profile => applied.push(profile),
+    setRecentlyInteracted: value => { context.interacted = value },
+    pauseMonitorUpdates: () => { context.paused = true },
+    updateKnownDisplays: () => { context.saved = true },
+    updateBrightnessQueue: [{ id: 'DISPLAY-1', level: 80 }],
+    updateBrightnessTimeout: 123,
+    currentTransition: 456,
+    clearTimeout: id => { context.cancelledTimeout = id },
+    clearInterval: id => { context.cancelledTransition = id }
   }
+  const prepareStart = source.indexOf('function prepareManualPreset()')
+  const prepareEnd = source.indexOf('function applyEarlyStartupBrightness()', prepareStart)
+  vm.runInNewContext(source.slice(prepareStart, prepareEnd), context)
   vm.runInNewContext(source.slice(start, end), context)
   return { state, applied, context, request: (sender, request) => handler({ sender }, request), panel, settingsPage }
 }
@@ -35,6 +46,13 @@ test('creation and editing belong to settings; panel can only apply', () => {
   assert.equal(fixture.request(fixture.settingsPage, { action: 'apply', id: 'test-preset' }).error, 'invalid-sender')
   assert.equal(fixture.request(fixture.panel, { action: 'apply', id: 'test-preset' }).ok, true)
   assert.equal(fixture.applied.length, 1)
+  assert.equal(fixture.context.interacted, true)
+  assert.equal(fixture.context.paused, true)
+  assert.equal(fixture.context.saved, true)
+  assert.equal(fixture.context.updateBrightnessQueue.length, 0)
+  assert.equal(fixture.context.updateBrightnessTimeout, false)
+  assert.equal(fixture.context.cancelledTimeout, 123)
+  assert.equal(fixture.context.cancelledTransition, 456)
 })
 
 test('settings changes survive serialization and preserve disconnected displays', () => {

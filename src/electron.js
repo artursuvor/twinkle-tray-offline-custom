@@ -6,6 +6,8 @@ const fs = require('fs')
 
 const path = require('path');
 const { makeQuickPreset, updateQuickPreset } = require('./quick-presets');
+const { StartupBrightness } = require('./startup-brightness');
+const startupBrightness = new StartupBrightness();
 
 let isDev = app.commandLine.hasSwitch("dev");
 
@@ -2370,7 +2372,9 @@ ipcMain.handle('quick-preset', (event, request = {}) => {
     const index = profiles.findIndex(profile => profile.uuid === request.id)
     if (request.action === 'apply') {
       if (index < 0 || !profiles[index].setBrightness) throw new Error('missing-profile')
+      prepareManualPreset()
       applyProfileBrightness(profiles[index])
+      updateKnownDisplays(true, true)
     } else if (request.action === 'save') {
       const profile = makeQuickPreset(request.name, monitors, request.levels, settings, uuid())
       if (profiles.some(item => item.name?.trim().toLowerCase() === profile.name.toLowerCase()))
@@ -2847,7 +2851,20 @@ function commitRefreshedMonitors(newMonitors, oldMonitors = {}) {
     }
   }
 
+  // A refresh may have begun before a preset/slider click. Its old read must
+  // not replace the newer user intent while the worker finishes that write.
+  if (hasRecentlyInteracted) {
+    for (const monitor of Object.values(newMonitors)) {
+      const latest = Object.values(monitors).find(item => item.id === monitor.id)
+      if (latest) {
+        monitor.brightness = latest.brightness
+        monitor.brightnessRaw = latest.brightnessRaw
+        monitor.sdrLevel = latest.sdrLevel
+      }
+    }
+  }
   monitors = newMonitors
+  applyEarlyStartupBrightness()
   lastCompletedRefresh = Date.now()
   lightSensor.setMonitors(monitors)
   flushDeferredFeatureUpdates()
@@ -3518,6 +3535,7 @@ function applyAnimatedBrightness(level, eventMonitors = [], readableMonitorIds =
 // Flag recent user activity to skip certain events
 let hasRecentlyInteracted = false
 function setRecentlyInteracted(hasInteracted) {
+  if (hasInteracted) startupBrightness.cancel()
   if(hasRecentlyInteracted) clearTimeout(hasRecentlyInteracted);
   if(!hasInteracted) {
     hasRecentlyInteracted = false
@@ -4270,6 +4288,30 @@ function applyProfileBrightness(profile) {
   }
 }
 
+function prepareManualPreset() {
+  setRecentlyInteracted(true)
+  pauseMonitorUpdates()
+  // Throttled slider writes queued before the click otherwise run afterwards.
+  if (updateBrightnessTimeout) clearTimeout(updateBrightnessTimeout)
+  updateBrightnessTimeout = false
+  updateBrightnessQueue = []
+  if (currentTransition) clearInterval(currentTransition)
+  currentTransition = null
+}
+
+function applyEarlyStartupBrightness() {
+  if (isWindowsUserIdle) return
+  const changed = startupBrightness.apply(monitors, (monitor, level) => {
+    if (settings.hideDisplays?.[monitor.key] || shouldSkipDisplay(monitor)) return false
+    if (!(usesGammaSlider(monitor) || monitor.type === 'wmi' || monitor.type === 'software'
+      || monitor.type === 'studio-display' || (monitor.type === 'ddcci' && monitor.brightnessType))) return false
+    updateBrightness(monitor.id, level)
+    console.log(`Early startup brightness: ${monitor.name} @ 0%`)
+    return true
+  })
+  if (changed) updateKnownDisplays(true, true)
+}
+
 function getMainWindowHandle() {
   try {
     return mainWindow.getNativeWindowHandle().readBigUInt64LE()
@@ -4529,7 +4571,8 @@ app.on("ready", async () => {
     isRefreshing = false
     await refreshMonitors(true, true, false, hasEnabledLinkedFeatures())
 
-    if (settings.brightnessAtStartup) setKnownBrightness();
+    if (startupBrightness.active()) applyEarlyStartupBrightness();
+    else if (settings.brightnessAtStartup) setKnownBrightness();
     if (settings.checkTimeAtStartup) {
       lastTimeEvent = false;
       setTimeout(() => handleBackgroundUpdate(true), 3500)
@@ -5166,7 +5209,7 @@ function handleMonitorChange(t, e, d) {
 
     // During startup grace period, use current monitor brightness instead of saved profile
     // This prevents overwriting brightness that was manually set before shutdown
-    if (!settings.disableAutoApply) {
+    if (!settings.disableAutoApply && !hasRecentlyInteracted) {
       if (isStartupGracePeriod) {
         setKnownBrightness(true); // useCurrentMonitors = true to preserve current brightness
       } else {

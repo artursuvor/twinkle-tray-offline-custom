@@ -72,6 +72,7 @@
       "src/localization/*",
       "src/Utils.js",
       "src/quick-presets.js",
+      "src/startup-brightness.js",
       "src/offline.js",
       "src/Logger.js",
       "src/Monitors.js",
