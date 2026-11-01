@@ -22,6 +22,7 @@
     "index.js",
     "binding.gyp",
     "windows_ambient_sensor.cc",
+    "utils.hpp",
     "build/"
   ]
 }

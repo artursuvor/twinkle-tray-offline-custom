@@ -96,5 +96,10 @@
         "section": "Testing"
       }
     ]
+  },
+  "overrides": {
+    "markdown-toc": {
+      "gray-matter": "4.0.3"
+    }
   }
 }

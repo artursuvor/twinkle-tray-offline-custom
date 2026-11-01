@@ -1,7 +1,7 @@
 import React, { PureComponent } from "react";
 import TranslateReact from "../TranslateReact"
 import AppLogo from "../assets/logo.png"
-import IntroVideo from "../assets/intro-video.mp4"
+import IntroVideo from "url:../assets/intro-video.mp4"
 
 let T = new TranslateReact({}, {})
 

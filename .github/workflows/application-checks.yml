@@ -1,0 +1,40 @@
+name: Native application checks
+on:
+  pull_request:
+  push:
+    branches: [main, master, codex/security-audit-2026-10-30]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.18.0'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run parcel-build
+      - run: npm exec -- electron-builder install-app-deps --arch x64
+      - name: Build an unsigned Windows package without publishing
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_LINK: ''
+          WIN_CSC_LINK: ''
+        run: npm exec -- electron-builder --win --x64 --dir --publish never '--config.win.signAndEditExecutable=false'
+      - name: Record all dependency findings
+        continue-on-error: true
+        run: npm audit --json > dependency-audit.json
+      - name: Reject high and critical findings
+        run: npm audit --audit-level=high
+      - name: Reject high and critical findings in standalone documentation tooling
+        run: npm audit --prefix src/modules/node-active-window --audit-level=high
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit
+          path: dependency-audit.json
