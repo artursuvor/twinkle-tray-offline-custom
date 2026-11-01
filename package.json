@@ -17,7 +17,7 @@
     "arm64": "npm run parcel-build && electron-builder --arm64 -c.extraMetadata.name=twinkle-tray-arm64 -c.win.artifactName=\"${productName} v${version}-arm64.${ext}\" -c.win.compression=normal",
     "rebuild-ddcci-dev": "npm rebuild @hensm/ddcci",
     "appx-arm64": "npm run parcel-build && electron-builder --arm64 -w appx -c.extraMetadata.name=twinkle-tray-appx -c.win.artifactName=\"${productName} v${version}-store-arm64.${ext}\"",
-    "build": "npm ci & npm run parcel-build && npm run electron-build",
+    "build": "npm run parcel-build && npm run electron-build",
     "build-all": "npm run build && npm run appx && npm run appx-arm64",
     "test-wmibridge": "node src/modules/wmi-bridge/example.js"
   },
@@ -209,15 +209,17 @@
     "@babel/runtime": "^7.23.6",
     "bindings": "1.5.0",
     "cross-env": "^7.0.3",
-    "electron": "^43.4.0",
+    "electron": "43.8.6",
     "electron-builder": "26.18.0",
     "node-addon-api": "^8.2.2",
     "node-gyp": "^12.1.0",
-    "parcel-bundler": "^1.12.5",
     "react": "18.3.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "18.3.1",
-    "sass": "^1.54.0"
+    "sass": "^1.54.0",
+    "@parcel/core": "2.16.4",
+    "@parcel/config-default": "2.16.4",
+    "@parcel/transformer-sass": "2.16.4"
   },
   "overrides": {
     "node-gyp": "$node-gyp",
@@ -227,6 +229,11 @@
       "node-gyp": "$node-gyp",
       "bindings": "$bindings",
       "node-addon-api": "$node-addon-api"
+    },
+    "minimatch@>=9 <11": "11.0.3",
+    "@electron/asar": {
+      "glob": "14.0.3",
+      "minimatch": "11.0.3"
     }
   }
 }

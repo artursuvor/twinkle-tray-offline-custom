@@ -1,55 +1,39 @@
-const Bundler = require('parcel-bundler')
-const Path = require('path')
-const fs = require("fs")
+const { Parcel } = require('@parcel/core');
+const Path = require('path');
 
-const entryFiles = Path.join(__dirname, './html/*.html')
-
-const optionsDev = {
-    outDir: './cache',
-    watch: true,
-    minify: false,
-    sourceMaps: true,
-    hmr: true
+async function runParcel(mode = 'dev', logLevel = null) {
+    const parcelMode = mode.toLowerCase();
+    if (!['dev', 'live', 'build'].includes(parcelMode)) {
+        throw new Error(`Unknown Parcel mode: ${mode}`);
+    }
+    const development = parcelMode === 'dev';
+    const bundler = new Parcel({
+        entries: Path.join(__dirname, 'html/*.html'),
+        defaultConfig: require.resolve('@parcel/config-default'),
+        mode: development ? 'development' : 'production',
+        shouldAutoInstall: false,
+        shouldDisableCache: !development,
+        logLevel: logLevel === 0 ? 'none' : 'info',
+        targets: {
+            renderer: {
+                context: 'electron-renderer',
+                engines: { electron: '43' },
+                distDir: Path.resolve(__dirname, development ? '../cache' : '../build'),
+                publicUrl: './',
+                includeNodeModules: true,
+                sourceMap: development,
+                optimize: false,
+                scopeHoist: false,
+            },
+        },
+        serveOptions: development ? { port: 3000, host: '127.0.0.1' } : false,
+        hmrOptions: development ? { port: 3001, host: '127.0.0.1' } : false,
+    });
+    if (parcelMode === 'build') return bundler.run();
+    return bundler.watch((error, event) => {
+        if (error) console.error(error);
+        if (event?.type === 'buildFailure') console.error(event.diagnostics);
+    });
 }
 
-const optionsProd = {
-    outDir: './build',
-    publicUrl: './',
-    watch: true,
-    cache: false,
-    sourceMaps: false,
-    minify: false,
-    scopeHoist: false,
-    hmr: false
-}
-
-function clearDirectory(relativePath) {
-    const dir = Path.join(__dirname, relativePath)
-    if (fs.existsSync(dir)){
-        fs.rmSync(dir, { recursive: true })
-    }
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir)
-    }
-}
-
-async function runParcel(mode = "dev", logLevel = null) {
-    const parcelMode = mode?.toLocaleLowerCase?.()
-    if(parcelMode == "dev") {
-        clearDirectory('../cache')
-        const bundler = new Bundler(entryFiles, Object.assign(optionsDev, { watch: true, logLevel: (logLevel ?? 3) }))
-        return await bundler.serve(3000)
-    }
-    if(parcelMode == "live") {
-        clearDirectory('../build')
-        const bundler = new Bundler(entryFiles, Object.assign(optionsProd, { watch: true, logLevel: (logLevel ?? 1) }))
-        return await bundler.bundle()
-    }
-    if(parcelMode == "build") {
-        clearDirectory('../build')
-        const bundler = new Bundler(entryFiles, Object.assign(optionsProd, { watch: false, logLevel: (logLevel ?? 3) }))
-        return await bundler.bundle()
-    }
-}
-
-module.exports = runParcel
+module.exports = runParcel;

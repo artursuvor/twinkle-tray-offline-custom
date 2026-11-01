@@ -30,3 +30,5 @@ __pycache__/
 *.pyc
 /tools/asrock-monitor/*.log
 /tools/asrock-monitor/wake-on-next-login
+# Parcel 2 cache
+.parcel-cache/
