@@ -31,6 +31,8 @@ jobs:
         run: npm audit --json > dependency-audit.json
       - name: Reject high and critical findings
         run: npm audit --audit-level=high
+      - name: Reject high and critical findings in standalone documentation tooling
+        run: npm audit --prefix src/modules/node-active-window --audit-level=high
       - uses: actions/upload-artifact@v4
         if: always()
         with:
