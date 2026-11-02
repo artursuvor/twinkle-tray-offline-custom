@@ -2,6 +2,12 @@
 
 A personal Windows x64 fork of [Twinkle Tray](https://github.com/xanderfrangos/twinkle-tray), with compact brightness presets and enforced offline behavior. Adjust supported monitors from the system tray and switch between saved brightness levels with one click.
 
+## Run the portable build
+
+If you already have the portable package, open **Twinkle Tray Custom.exe** in its folder. Exit the regular Twinkle Tray from its system tray menu first. No installation or command script is needed; keep the entire folder together.
+
+Settings and saved presets are stored in the `data` subfolder. Preset buttons appear below the brightness sliders, and the matching preset is highlighted. Open **Settings → Presets** to add or edit a preset; the current interface labels are **Настройки → Пресеты**.
+
 ## What's new in this fork
 
 ### Early startup and reliable preset clicks
